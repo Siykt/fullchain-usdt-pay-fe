@@ -69,13 +69,14 @@ const App = () => {
   const orderId = params.get('orderId');
   const amount = params.get('amount') || '0';
   const address = params.get('address');
+  const parsedAmount = parseUnits(amount, 6);
   const paramsChainId = Number(params.get('chain') || '1');
 
   const { address: accountAddress, isConnected, chainId, chain } = useAccount();
   const { switchChain } = useSwitchChain();
   const usdtAddress = useMemo(() => getUSDTAddress(chainId), [chainId]);
   const qrcodeLink = useMemo(
-    () => buildEIP681ERC20TransferURI(usdtAddress, address as `0x${string}`, parseUnits(amount, 6), chainId),
+    () => buildEIP681ERC20TransferURI(usdtAddress, address as `0x${string}`, parsedAmount, chainId),
     [usdtAddress, address, amount, chainId]
   );
 
@@ -100,10 +101,10 @@ const App = () => {
         return;
       }
       if (!address || !amount || !isAddress(address)) return;
-      if (!allowance || allowance < BigInt(amount)) {
-        await approveAsync([address, BigInt(amount)]);
+      if (!allowance || allowance < parsedAmount) {
+        await approveAsync([address, parsedAmount]);
       }
-      await transferAsync([address, BigInt(amount)]);
+      await transferAsync([address, parsedAmount]);
     },
     onError: (error) => {
       console.error(error);
