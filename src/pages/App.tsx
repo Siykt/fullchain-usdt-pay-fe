@@ -1,44 +1,17 @@
 import { SVG } from '@/assets';
+import Button from '@/components/Button';
 import QRCode from '@/components/QRCode';
+import { ABI } from '@/lib/abi';
+import { getUSDTAddress } from '@/lib/address';
+import { getPermitData } from '@/lib/permit';
 import { ConnectButton, useAddRecentTransaction, useConnectModal } from '@rainbow-me/rainbowkit';
 import { useMutation } from '@tanstack/react-query';
+import { PERMIT2_ADDRESS } from '@uniswap/permit2-sdk';
 import classnames from 'classnames';
 import { useEffect, useMemo, useState } from 'react';
-import { BaseError, isAddress, parseAbi, parseUnits } from 'viem';
-import { useAccount, useReadContract, useSwitchChain } from 'wagmi';
+import { Address, BaseError, Hash, isAddress, parseUnits } from 'viem';
+import { useAccount, useReadContract, useSignTypedData, useSwitchChain, useTransactionCount } from 'wagmi';
 import { useCustomWriteContract } from './hooks/useCustomWriteContract';
-import Button from '@/components/Button';
-
-const USDT_MAINNET = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
-const USDT_BASE = '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2';
-const USDT_POLYGON = '0xc2132D05D31c914a87C6611C10748AEb04B58e8F';
-const USDT_BSC = '0x55d398326f99059ff775485246999027b3197955';
-const USDT_ARBITRUM = '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9';
-const USDT_AVALANCHE = '0xc7198437980c041c805a1edcba50c1ce5db95118';
-
-function getUSDTAddress(chainId = 1) {
-  switch (chainId) {
-    case 1:
-      return USDT_MAINNET;
-    case 137:
-      return USDT_POLYGON;
-    case 56:
-      return USDT_BSC;
-    case 42161:
-      return USDT_ARBITRUM;
-    case 43114:
-      return USDT_AVALANCHE;
-    case 8453:
-      return USDT_BASE;
-  }
-  return USDT_MAINNET;
-}
-
-const ERC20_ABI = parseAbi([
-  'function transfer(address recipient, uint256 amount) external returns (bool)',
-  'function allowance(address owner, address spender) external view returns (uint256)',
-  'function approve(address spender, uint256 value) external returns (bool)',
-]);
 
 function buildEIP681ERC20TransferURI(
   tokenAddress: string,
@@ -63,6 +36,7 @@ const App = () => {
   const address = params.get('address');
   const parsedAmount = parseUnits(amount, 6);
   const paramsChainId = Number(params.get('chain') || '1');
+  const { signTypedDataAsync } = useSignTypedData();
 
   const { address: accountAddress, isConnected, chainId, chain } = useAccount();
   const { switchChain } = useSwitchChain();
@@ -71,20 +45,31 @@ const App = () => {
     () => buildEIP681ERC20TransferURI(usdtAddress, address as `0x${string}`, parsedAmount, chainId),
     [usdtAddress, address, amount, chainId]
   );
+  const { data: nonceData } = useTransactionCount({
+    address: accountAddress,
+  });
 
   const { openConnectModal } = useConnectModal();
-  const { data: allowance, isFetching: isFetchingAllowance } = useReadContract({
-    abi: ERC20_ABI, // convert contract is erc404 contract
+  const {
+    data: allowance,
+    isFetching: isFetchingAllowance,
+    refetch: refetchAllowance,
+  } = useReadContract({
+    abi: ABI.ERC20_ABI, // convert contract is erc404 contract
     address: usdtAddress,
     functionName: 'allowance',
-    args: [accountAddress as `0x${string}`, address as `0x${string}`],
-    query: { enabled: !!accountAddress && !!address, retry: false },
+    args: [accountAddress as `0x${string}`, PERMIT2_ADDRESS],
+    query: { enabled: !!accountAddress, retry: false },
   });
-  const addRecentTransaction = useAddRecentTransaction();
-  const { approveAsync, isPending: isApproving } = useCustomWriteContract(ERC20_ABI, 'approve', usdtAddress, {
+  const { approveAsync, isPending: isApproving } = useCustomWriteContract(ABI.ERC20_ABI, 'approve', usdtAddress, {
     onSuccess: (hash) => addRecentTransaction({ hash, description: `Approve $${address} USDT` }),
   });
-  const { transferAsync, isPending: isTransferring } = useCustomWriteContract(ERC20_ABI, 'transfer', usdtAddress);
+  const addRecentTransaction = useAddRecentTransaction();
+  const { permitTransferFromAsync, isPending: isTransferring } = useCustomWriteContract(
+    ABI.PERMIT2_ABI,
+    'permitTransferFrom',
+    PERMIT2_ADDRESS
+  );
   const { mutate: onPayOrConnection, isPending: isPayPending } = useMutation({
     mutationFn: async () => {
       setError(null);
@@ -92,11 +77,62 @@ const App = () => {
         openConnectModal?.();
         return;
       }
-      if (!address || !amount || !isAddress(address)) return;
+      if (!address || !amount || !isAddress(address) || !accountAddress) return;
       if (!allowance || allowance < parsedAmount) {
-        await approveAsync([address, parsedAmount]);
+        await approveAsync([PERMIT2_ADDRESS, BigInt('0xffffffffffffffffffffffffffffffffffffffff')]);
       }
-      await transferAsync([address, parsedAmount]);
+
+      const { data: newAllowance } = await refetchAllowance();
+      if (!newAllowance || newAllowance < parsedAmount) {
+        setError('Allowance is not enough');
+        return;
+      }
+
+      // 获取 permit2 签名数据（spender 必须等于 msg.sender，即当前调用者）
+      const nonce = nonceData || 1;
+      const { domain, types, values } = getPermitData(
+        usdtAddress,
+        accountAddress as Address,
+        parsedAmount,
+        nonce,
+        paramsChainId
+      );
+
+      // 签名
+      const signature = await signTypedDataAsync({
+        domain: {
+          ...domain,
+          chainId: paramsChainId,
+          salt: domain.salt as Hash,
+          verifyingContract: domain.verifyingContract as Hash,
+        },
+        types,
+        message: values as unknown as Record<string, unknown>,
+        primaryType: 'PermitTransferFrom',
+      });
+
+      // 构造 permitTransferFrom 参数（与 ABI 对齐）
+      const permit = {
+        nonce: BigInt(nonce),
+        permitted: {
+          token: usdtAddress,
+          amount: parsedAmount,
+        },
+        deadline: values.deadline as bigint,
+      };
+
+      const transferDetails = {
+        to: address as `0x${string}`,
+        requestedAmount: parsedAmount,
+      };
+
+      // 调用 permit2 合约执行转账
+      const hash = await permitTransferFromAsync([permit, transferDetails, accountAddress, signature as `0x${string}`]);
+
+      addRecentTransaction({
+        hash,
+        description: `Transfer ${amount} USDT to ${address}`,
+      });
     },
     onError: (error) => {
       console.error(error);
@@ -107,6 +143,7 @@ const App = () => {
       }
     },
   });
+
   const isBusy = isFetchingAllowance || isApproving || isTransferring || isPayPending;
 
   useEffect(() => {
