@@ -75,7 +75,7 @@ const App = () => {
   const { switchChain } = useSwitchChain();
   const usdtAddress = useMemo(() => getUSDTAddress(chainId), [chainId]);
   const qrcodeLink = useMemo(
-    () => buildEIP681ERC20TransferURI(usdtAddress, address as `0x${string}`, BigInt(amount), chainId),
+    () => buildEIP681ERC20TransferURI(usdtAddress, address as `0x${string}`, parseUnits(amount, 6), chainId),
     [usdtAddress, address, amount, chainId]
   );
 
