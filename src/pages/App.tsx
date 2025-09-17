@@ -3,7 +3,7 @@ import QRCode from '@/components/QRCode';
 import { ConnectButton, useAddRecentTransaction, useConnectModal } from '@rainbow-me/rainbowkit';
 import { useMutation } from '@tanstack/react-query';
 import classnames from 'classnames';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BaseError, isAddress, parseAbi, parseUnits } from 'viem';
 import { useAccount, useReadContract, useSwitchChain } from 'wagmi';
 import { useCustomWriteContract } from './hooks/useCustomWriteContract';
@@ -47,7 +47,7 @@ const App = () => {
   const orderId = params.get('orderId');
   const amount = params.get('amount') || '0';
   const address = params.get('address');
-  const paramsChainId = params.get('chainId');
+  const paramsChainId = Number(params.get('chain') || '1');
   const { address: accountAddress, isConnected, chainId, chain } = useAccount();
   const { switchChain } = useSwitchChain();
   const usdtAddress = chainId === 1 ? USDT_MAINNET : USDT_BASE;
@@ -95,6 +95,15 @@ const App = () => {
     },
   });
   const isBusy = isFetchingAllowance || isApproving || isTransferring || isPayPending;
+
+  useEffect(() => {
+    if (isConnected && paramsChainId !== chainId) {
+      // 等待插件注入完成
+      setTimeout(() => {
+        switchChain({ chainId: paramsChainId });
+      }, 300);
+    }
+  }, [paramsChainId, switchChain, chainId, isConnected]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen sm:py-8 sm:px-4">
