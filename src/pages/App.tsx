@@ -3,7 +3,7 @@ import QRCode from '@/components/QRCode';
 import { ConnectButton, useAddRecentTransaction, useConnectModal } from '@rainbow-me/rainbowkit';
 import { useMutation } from '@tanstack/react-query';
 import classnames from 'classnames';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BaseError, isAddress, parseAbi, parseUnits } from 'viem';
 import { useAccount, useReadContract, useSwitchChain } from 'wagmi';
 import { useCustomWriteContract } from './hooks/useCustomWriteContract';
@@ -11,6 +11,28 @@ import Button from '@/components/Button';
 
 const USDT_MAINNET = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 const USDT_BASE = '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2';
+const USDT_POLYGON = '0xc2132D05D31c914a87C6611C10748AEb04B58e8F';
+const USDT_BSC = '0x55d398326f99059ff775485246999027b3197955';
+const USDT_ARBITRUM = '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9';
+const USDT_AVALANCHE = '0xc7198437980c041c805a1edcba50c1ce5db95118';
+
+function getUSDTAddress(chainId = 1) {
+  switch (chainId) {
+    case 1:
+      return USDT_MAINNET;
+    case 137:
+      return USDT_POLYGON;
+    case 56:
+      return USDT_BSC;
+    case 42161:
+      return USDT_ARBITRUM;
+    case 43114:
+      return USDT_AVALANCHE;
+    case 8453:
+      return USDT_BASE;
+  }
+  return USDT_MAINNET;
+}
 
 const ERC20_ABI = parseAbi([
   'function totalSupply() external view returns (uint256)',
@@ -48,15 +70,13 @@ const App = () => {
   const amount = params.get('amount') || '0';
   const address = params.get('address');
   const paramsChainId = Number(params.get('chain') || '1');
+
   const { address: accountAddress, isConnected, chainId, chain } = useAccount();
   const { switchChain } = useSwitchChain();
-  const usdtAddress = chainId === 1 ? USDT_MAINNET : USDT_BASE;
-  const qrcodeLink = buildEIP681ERC20TransferURI(
-    usdtAddress,
-    address as `0x${string}`,
-    parseUnits(amount, 6),
-    chainId,
-    20000n
+  const usdtAddress = useMemo(() => getUSDTAddress(chainId), [chainId]);
+  const qrcodeLink = useMemo(
+    () => buildEIP681ERC20TransferURI(usdtAddress, address as `0x${string}`, BigInt(amount), chainId),
+    [usdtAddress, address, amount, chainId]
   );
 
   const { openConnectModal } = useConnectModal();
@@ -113,7 +133,7 @@ const App = () => {
           <h1 className="text-#e5e7eb text-2xl font-semibold tracking-wide">USDT 支付</h1>
         </div>
         <div className="text-#9aa4b2 text-sm">订单号: {orderId || '-'}</div>
-        <div className="rounded-xl bg-#1A1B1F border border-#293041/70 shadow-inner">
+        <div className="rounded-xl bg-#1A1B1F border border-#293041/70 shadow-inner p-2">
           <QRCode data={qrcodeLink} width={268} height={268} />
         </div>
 

@@ -13,7 +13,7 @@ import {
 } from '@rainbow-me/rainbowkit/wallets';
 import { FC, PropsWithChildren } from 'react';
 import { WagmiProvider } from 'wagmi';
-import { base, mainnet } from 'wagmi/chains';
+import { arbitrum, avalanche, base, bsc, mainnet, optimism, polygon } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const queryClient = new QueryClient({
@@ -26,6 +26,11 @@ const config = getDefaultConfig({
   chains: [
     mainnet,
     base,
+    bsc,
+    arbitrum,
+    optimism,
+    polygon,
+    avalanche,
     //sepolia, baseSepolia
   ],
   wallets: [
