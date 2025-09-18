@@ -2,6 +2,7 @@ import { StrictMode, Suspense } from 'react';
 import App from './pages/App';
 import { createRoot } from 'react-dom/client';
 import { WagmiContextProvider } from './context/wagmi';
+import './locales';
 
 export default function render() {
   const container = document.querySelector('#root');

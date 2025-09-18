@@ -1,0 +1,13 @@
+{
+  "payment": {
+    "connectWallet": "Link Wallet",
+    "networkTip": "The network you are currently connected to, please ensure it matches the recipient's network.",
+    "orderId": "Order number",
+    "payNow": "Pay immediately",
+    "paymentAmount": "Payment amount",
+    "paymentNetwork": "Payment Network",
+    "processing": "Processing...",
+    "receiveAddress": "Receiving address",
+    "title": "USDT Payment"
+  }
+}

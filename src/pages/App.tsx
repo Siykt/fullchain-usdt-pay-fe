@@ -14,6 +14,8 @@ import { Address, BaseError, Hash, isAddress, parseUnits } from 'viem';
 import { useAccount, useReadContract, useSignTypedData, useSwitchChain, useTransactionCount } from 'wagmi';
 import { useCustomWriteContract } from './hooks/useCustomWriteContract';
 import { SUPPORTED_CHAINS } from '@/lib/chain';
+import { useTranslation } from 'react-i18next';
+import { changeLanguage } from '@/locales';
 
 const App = () => {
   const [error, setError] = useState<string | null>(null);
@@ -23,10 +25,13 @@ const App = () => {
   const amount = params.get('amount') || '0';
   const to = params.get('to') as Address;
   const qrcodeType = params.get('qrcodeType') || 'address';
+  const lang = params.get('lang');
   const parsedAmount = parseUnits(amount, 6);
   const paramsChainId = Number(params.get('chain') || '1');
   const paramsChainName = SUPPORTED_CHAINS.find((chain) => chain.id === paramsChainId)?.name || 'Ethereum';
   const { signTypedDataAsync } = useSignTypedData();
+
+  const { t } = useTranslation();
 
   const { address: accountAddress, isConnected, chainId, chain } = useAccount();
   const { switchChain, switchChainAsync } = useSwitchChain({
@@ -154,15 +159,23 @@ const App = () => {
     }
   }, [paramsChainId, switchChain, chainId, isConnected]);
 
+  useEffect(() => {
+    if (lang) {
+      changeLanguage(lang as 'zh' | 'en' | 'ru');
+    }
+  }, [lang]);
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen sm:py-8 sm:px-4">
       <div className="w-full sm:w-fit px-6 py-6 bg-#0f1117/60 backdrop-blur-md sm:rounded-2xl flex flex-col items-center justify-center gap-5 shadow-[0_8px_32px_rgba(0,0,0,0.35)] border border-#2a2f3a/60">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <img src={SVG.USDT} alt="USDT" className="w-8 h-8" />
-          <h1 className="text-#e5e7eb text-2xl font-semibold tracking-wide">USDT 支付</h1>
+          <h1 className="text-#e5e7eb text-2xl font-semibold tracking-wide">{t('payment.title')}</h1>
         </div>
-        <div className="text-#9aa4b2 text-sm">标题: {title || '-'}</div>
-        <div className="text-#9aa4b2 text-sm">订单号: {orderId || '-'}</div>
+        <div className="text-#9aa4b2 text-20px">{title || '-'}</div>
+        <div className="text-#9aa4b2 text-sm">
+          {t('payment.orderId')}: {orderId || '-'}
+        </div>
         <div className="rounded-xl bg-#1A1B1F border border-#293041/70 shadow-inner p-2">
           <QRCode data={qrcodeLink} width={268} height={268} />
         </div>
@@ -172,18 +185,18 @@ const App = () => {
             <div>
               <ConnectButton chainStatus="full" accountStatus="address" />
             </div>
-            <div className="text-#9aa4b2 text-sm">您当前选择的网络，请注意是否与收款方一致</div>
+            <div className="text-#9aa4b2 text-sm">{t('payment.networkTip')}</div>
           </div>
         )}
 
-        <div className="w-full flex flex-col sm:items-center gap-3 text-sm text-#cbd5e1 sm:grid sm:grid-cols-[68px_1fr]">
-          <span className="text-#9aa4b2">收款地址</span>
+        <div className="w-full flex flex-col sm:items-center gap-3 text-sm text-#cbd5e1 sm:grid sm:grid-cols-[auto_1fr]">
+          <span className="text-#9aa4b2">{t('payment.receiveAddress')}</span>
           <span className="truncate font-mono text-#e5e7eb/90" title={to || ''}>
             {to || '-'}
           </span>
-          <span className="text-#9aa4b2">支付金额</span>
+          <span className="text-#9aa4b2">{t('payment.paymentAmount')}</span>
           <span className="font-medium">{amount ? `${amount} USDT` : '-'}</span>
-          <span className="text-#9aa4b2">支付网络</span>
+          <span className="text-#9aa4b2">{t('payment.paymentNetwork')}</span>
           <div className="flex items-center justify-between">
             <span>{paramsChainName || '-'}</span>
           </div>
@@ -201,7 +214,7 @@ const App = () => {
             )}
           >
             <div className="h-8 flex items-center justify-center">
-              {isBusy ? '处理中…' : isConnected ? '立即支付' : '连接钱包'}
+              {isBusy ? t('payment.processing') : isConnected ? t('payment.payNow') : t('payment.connectWallet')}
               {isConnected && !isBusy && amount ? ` ${amount} USDT` : ''}
             </div>
           </Button>

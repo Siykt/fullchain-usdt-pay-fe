@@ -1,0 +1,13 @@
+{
+  "payment": {
+    "title": "USDT 支付",
+    "orderId": "订单号",
+    "networkTip": "您当前选择的网络，请注意是否与收款方一致",
+    "receiveAddress": "收款地址",
+    "paymentNetwork": "支付网络",
+    "processing": "处理中…",
+    "payNow": "立即支付",
+    "connectWallet": "链接钱包",
+    "paymentAmount": "支付金额"
+  }
+}
