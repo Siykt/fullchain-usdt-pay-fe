@@ -3,6 +3,7 @@ import Button from '@/components/Button';
 import QRCode from '@/components/QRCode';
 import { ABI } from '@/lib/abi';
 import { getUSDTAddress } from '@/lib/address';
+import { buildEIP681URI } from '@/lib/eip681';
 import { getPermitData } from '@/lib/permit';
 import { ConnectButton, useAddRecentTransaction, useConnectModal } from '@rainbow-me/rainbowkit';
 import { useMutation } from '@tanstack/react-query';
@@ -13,27 +14,14 @@ import { Address, BaseError, Hash, isAddress, parseUnits } from 'viem';
 import { useAccount, useReadContract, useSignTypedData, useSwitchChain, useTransactionCount } from 'wagmi';
 import { useCustomWriteContract } from './hooks/useCustomWriteContract';
 
-function buildEIP681ERC20TransferURI(
-  tokenAddress: string,
-  recipientAddress: string,
-  amount: bigint,
-  chainId?: number,
-  gas?: bigint
-) {
-  const chainSuffix = chainId ? `@${chainId}` : '';
-  const params = new URLSearchParams();
-  params.set('address', recipientAddress);
-  params.set('uint256', amount.toString());
-  if (gas) params.set('gas', gas.toString());
-  return `ethereum:${tokenAddress}${chainSuffix}/transfer?${params.toString()}`;
-}
-
 const App = () => {
   const [error, setError] = useState<string | null>(null);
   const params = new URLSearchParams(window.location.search);
   const orderId = params.get('orderId');
+  const title = params.get('title');
   const amount = params.get('amount') || '0';
-  const address = params.get('address');
+  const to = params.get('to') as Address;
+  const qrcodeType = params.get('qrcodeType') || 'address';
   const parsedAmount = parseUnits(amount, 6);
   const paramsChainId = Number(params.get('chain') || '1');
   const { signTypedDataAsync } = useSignTypedData();
@@ -41,10 +29,12 @@ const App = () => {
   const { address: accountAddress, isConnected, chainId, chain } = useAccount();
   const { switchChain } = useSwitchChain();
   const usdtAddress = useMemo(() => getUSDTAddress(chainId), [chainId]);
-  const qrcodeLink = useMemo(
-    () => buildEIP681ERC20TransferURI(usdtAddress, address as `0x${string}`, parsedAmount, chainId),
-    [usdtAddress, address, amount, chainId]
-  );
+  const qrcodeLink = useMemo(() => {
+    if (qrcodeType === 'address') {
+      return to;
+    }
+    return buildEIP681URI(usdtAddress, to as `0x${string}`, parsedAmount, chainId);
+  }, [usdtAddress, to, amount, chainId]);
   const { data: nonceData } = useTransactionCount({
     address: accountAddress,
   });
@@ -62,7 +52,7 @@ const App = () => {
     query: { enabled: !!accountAddress, retry: false },
   });
   const { approveAsync, isPending: isApproving } = useCustomWriteContract(ABI.ERC20_ABI, 'approve', usdtAddress, {
-    onSuccess: (hash) => addRecentTransaction({ hash, description: `Approve $${address} USDT` }),
+    onSuccess: (hash) => addRecentTransaction({ hash, description: `Approve ${to} USDT` }),
   });
   const addRecentTransaction = useAddRecentTransaction();
   const { permitTransferFromAsync, isPending: isTransferring } = useCustomWriteContract(
@@ -77,7 +67,7 @@ const App = () => {
         openConnectModal?.();
         return;
       }
-      if (!address || !amount || !isAddress(address) || !accountAddress) return;
+      if (!to || !amount || !isAddress(to) || !accountAddress) return;
       if (!allowance || allowance < parsedAmount) {
         await approveAsync([PERMIT2_ADDRESS, BigInt('0xffffffffffffffffffffffffffffffffffffffff')]);
       }
@@ -122,7 +112,7 @@ const App = () => {
       };
 
       const transferDetails = {
-        to: address as `0x${string}`,
+        to,
         requestedAmount: parsedAmount,
       };
 
@@ -131,7 +121,7 @@ const App = () => {
 
       addRecentTransaction({
         hash,
-        description: `Transfer ${amount} USDT to ${address}`,
+        description: `Transfer ${amount} USDT to ${to}`,
       });
     },
     onError: (error) => {
@@ -162,6 +152,7 @@ const App = () => {
           <img src={SVG.USDT} alt="USDT" className="w-8 h-8" />
           <h1 className="text-#e5e7eb text-2xl font-semibold tracking-wide">USDT 支付</h1>
         </div>
+        <div className="text-#9aa4b2 text-sm">标题: {title || '-'}</div>
         <div className="text-#9aa4b2 text-sm">订单号: {orderId || '-'}</div>
         <div className="rounded-xl bg-#1A1B1F border border-#293041/70 shadow-inner p-2">
           <QRCode data={qrcodeLink} width={268} height={268} />
@@ -173,8 +164,8 @@ const App = () => {
 
         <div className="w-full flex flex-col sm:items-center gap-3 text-sm text-#cbd5e1 sm:grid sm:grid-cols-[68px_1fr]">
           <span className="text-#9aa4b2">收款地址</span>
-          <span className="truncate font-mono text-#e5e7eb/90" title={address || ''}>
-            {address || '-'}
+          <span className="truncate font-mono text-#e5e7eb/90" title={to || ''}>
+            {to || '-'}
           </span>
           <span className="text-#9aa4b2">支付金额</span>
           <span className="font-medium">{amount ? `${amount} USDT` : '-'}</span>
