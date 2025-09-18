@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Address, BaseError, Hash, isAddress, parseUnits } from 'viem';
 import { useAccount, useReadContract, useSignTypedData, useSwitchChain, useTransactionCount } from 'wagmi';
 import { useCustomWriteContract } from './hooks/useCustomWriteContract';
+import { SUPPORTED_CHAINS } from '@/lib/chain';
 
 const App = () => {
   const [error, setError] = useState<string | null>(null);
@@ -24,10 +25,13 @@ const App = () => {
   const qrcodeType = params.get('qrcodeType') || 'address';
   const parsedAmount = parseUnits(amount, 6);
   const paramsChainId = Number(params.get('chain') || '1');
+  const paramsChainName = SUPPORTED_CHAINS.find((chain) => chain.id === paramsChainId)?.name || 'Ethereum';
   const { signTypedDataAsync } = useSignTypedData();
 
   const { address: accountAddress, isConnected, chainId, chain } = useAccount();
-  const { switchChain } = useSwitchChain();
+  const { switchChain, switchChainAsync } = useSwitchChain({
+    mutation: { onError: (error) => setError(error.message) },
+  });
   const usdtAddress = useMemo(() => getUSDTAddress(chainId), [chainId]);
   const qrcodeLink = useMemo(() => {
     if (qrcodeType === 'address') {
@@ -67,6 +71,11 @@ const App = () => {
         openConnectModal?.();
         return;
       }
+
+      if (paramsChainId !== chainId) {
+        await switchChainAsync({ chainId: paramsChainId });
+      }
+
       if (!to || !amount || !isAddress(to) || !accountAddress) return;
       if (!allowance || allowance < parsedAmount) {
         await approveAsync([PERMIT2_ADDRESS, BigInt('0xffffffffffffffffffffffffffffffffffffffff')]);
@@ -158,9 +167,14 @@ const App = () => {
           <QRCode data={qrcodeLink} width={268} height={268} />
         </div>
 
-        <div className="w-full flex items-center justify-right">
-          {isConnected && <ConnectButton chainStatus="full" accountStatus="address" />}
-        </div>
+        {isConnected && (
+          <div className="w-full flex-col flex items-end justify-center gap-2">
+            <div>
+              <ConnectButton chainStatus="full" accountStatus="address" />
+            </div>
+            <div className="text-#9aa4b2 text-sm">您当前选择的网络，请注意是否与收款方一致</div>
+          </div>
+        )}
 
         <div className="w-full flex flex-col sm:items-center gap-3 text-sm text-#cbd5e1 sm:grid sm:grid-cols-[68px_1fr]">
           <span className="text-#9aa4b2">收款地址</span>
@@ -171,7 +185,7 @@ const App = () => {
           <span className="font-medium">{amount ? `${amount} USDT` : '-'}</span>
           <span className="text-#9aa4b2">支付网络</span>
           <div className="flex items-center justify-between">
-            <span>{chain ? chain.name : '-'}</span>
+            <span>{paramsChainName || '-'}</span>
           </div>
         </div>
 

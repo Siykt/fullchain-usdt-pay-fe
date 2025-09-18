@@ -1,4 +1,5 @@
-import { RainbowKitProvider, darkTheme, getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { SUPPORTED_CHAINS } from '@/lib/chain';
+import { darkTheme, getDefaultConfig, RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import {
   argentWallet,
   coinbaseWallet,
@@ -11,10 +12,9 @@ import {
   uniswapWallet,
   walletConnectWallet,
 } from '@rainbow-me/rainbowkit/wallets';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { FC, PropsWithChildren } from 'react';
 import { WagmiProvider } from 'wagmi';
-import { arbitrum, avalanche, base, bsc, mainnet, optimism, polygon } from 'wagmi/chains';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false } },
@@ -23,16 +23,7 @@ const queryClient = new QueryClient({
 const config = getDefaultConfig({
   projectId: '-',
   appName: 'Fullchain USDT pay',
-  chains: [
-    mainnet,
-    base,
-    bsc,
-    arbitrum,
-    optimism,
-    polygon,
-    avalanche,
-    //sepolia, baseSepolia
-  ],
+  chains: SUPPORTED_CHAINS,
   wallets: [
     {
       groupName: 'Popular',
