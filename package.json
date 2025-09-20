@@ -5,7 +5,7 @@
     "email": "cnsiykt@163.com"
   },
   "private": true,
-  "version": "0.0.9",
+  "version": "0.0.10",
   "type": "module",
   "scripts": {
     "dev": "vite --host --port 8081 --mode development",
