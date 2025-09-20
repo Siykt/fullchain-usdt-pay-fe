@@ -9,6 +9,7 @@
     "processing": "Processing...",
     "receiveAddress": "Receiving address",
     "title": "USDT Payment",
-    "expired": "This order has expired, please return to the app to recreate it."
+    "expired": "This order has expired, please return to the app to recreate it.",
+    "success": "Payment successful, you may now close the page!"
   }
 }

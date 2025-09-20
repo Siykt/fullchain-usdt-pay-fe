@@ -88,7 +88,7 @@ const App = () => {
     [isFetchingAllowance, isApproving, isTransferring, isFetchingDecimals, isExpired]
   );
 
-  const { mutate: onPayOrConnection, isPending: isPayPending } = useMutation({
+  const { mutate: onPayOrConnection, isPending: isPayPending, isSuccess: isPaySuccess } = useMutation({
     mutationFn: async () => {
       setError(null);
       if (!isConnected) {
@@ -177,8 +177,9 @@ const App = () => {
     if (isExpired) return t('payment.expired');
     if (isBusy) return t('payment.processing');
     if (!isConnected) return t('payment.connectWallet');
+    if (isPaySuccess) return t('payment.success');
     return t('payment.payNow', { amount });
-  }, [isExpired, isConnected, t, isBusy, amount]);
+  }, [isExpired, isConnected, t, isBusy, amount, isPaySuccess]);
 
   useEffect(() => {
     if (isConnected && paramsChainId !== chainId) {
@@ -249,7 +250,8 @@ const App = () => {
             className={classnames(
               'inline-flex items-center justify-center w-full h-12 rounded-xl btn-primary',
               isBusy && 'cursor-not-allowed pointer-events-none',
-              isExpired && 'opacity-50'
+              isExpired && 'opacity-50',
+              isPaySuccess && 'opacity-90 cursor-not-allowed pointer-events-none'
             )}
           >
             <div className="h-8 flex items-center justify-center">{btnText}</div>
