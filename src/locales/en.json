@@ -1,6 +1,6 @@
 {
   "payment": {
-    "connectWallet": "Link Wallet",
+    "connectWallet": "Connect Wallet",
     "networkTip": "The network you are currently connected to, please ensure it matches the recipient's network.",
     "orderId": "Order number",
     "payNow": "Pay immediately",
