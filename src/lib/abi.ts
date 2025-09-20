@@ -4,6 +4,7 @@ const ERC20_ABI = parseAbi([
   'function transfer(address recipient, uint256 amount) external returns (bool)',
   'function allowance(address owner, address spender) external view returns (uint256)',
   'function approve(address spender, uint256 value) external returns (bool)',
+  'function decimals() external view returns (uint8)',
 ]);
 
 const PERMIT2_ABI = parseAbi([

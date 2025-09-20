@@ -16,6 +16,7 @@ import { useCustomWriteContract } from './hooks/useCustomWriteContract';
 import { SUPPORTED_CHAINS } from '@/lib/chain';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '@/locales';
+import { useWaitForTransactionSuccess } from './hooks/useWaitForTransactionSuccess';
 
 const App = () => {
   const [error, setError] = useState<string | null>(null);
@@ -26,11 +27,10 @@ const App = () => {
   const to = params.get('to') as Address;
   const qrcodeType = params.get('qrcodeType') || 'address';
   const lang = params.get('lang');
-  const parsedAmount = parseUnits(amount, 6);
   const paramsChainId = Number(params.get('chain') || '1');
   const paramsChainName = SUPPORTED_CHAINS.find((chain) => chain.id === paramsChainId)?.name || 'Ethereum';
   const { signTypedDataAsync } = useSignTypedData();
-
+  const waitTxSuccess = useWaitForTransactionSuccess();
   const { t } = useTranslation();
 
   const { address: accountAddress, isConnected, chainId, chain } = useAccount();
@@ -38,6 +38,14 @@ const App = () => {
     mutation: { onError: (error) => setError(error.message) },
   });
   const usdtAddress = useMemo(() => getUSDTAddress(chainId), [chainId]);
+  const { data: usdtDecimals, isPending: isFetchingDecimals } = useReadContract({
+    abi: ABI.ERC20_ABI,
+    address: usdtAddress,
+    functionName: 'decimals',
+    query: { enabled: !!usdtAddress },
+  });
+  const parsedAmount = useMemo(() => parseUnits(amount, usdtDecimals || 6), [amount, usdtDecimals]);
+
   const qrcodeLink = useMemo(() => {
     if (qrcodeType === 'address') {
       return to;
@@ -69,11 +77,18 @@ const App = () => {
     'permitTransferFrom',
     PERMIT2_ADDRESS
   );
+
+  const disabled = useMemo(() => isFetchingAllowance || isApproving || isTransferring || isFetchingDecimals, [isFetchingAllowance, isApproving, isTransferring, isFetchingDecimals]);
+
   const { mutate: onPayOrConnection, isPending: isPayPending } = useMutation({
     mutationFn: async () => {
       setError(null);
       if (!isConnected) {
         openConnectModal?.();
+        return;
+      }
+
+      if (disabled) {
         return;
       }
 
@@ -83,7 +98,8 @@ const App = () => {
 
       if (!to || !amount || !isAddress(to) || !accountAddress) return;
       if (!allowance || allowance < parsedAmount) {
-        await approveAsync([PERMIT2_ADDRESS, BigInt('0xffffffffffffffffffffffffffffffffffffffff')]);
+        const hash = await approveAsync([PERMIT2_ADDRESS, BigInt('0xffffffffffffffffffffffffffffffffffffffff')]);
+        await waitTxSuccess(hash);
       }
 
       const { data: newAllowance } = await refetchAllowance();
@@ -132,7 +148,7 @@ const App = () => {
 
       // 调用 permit2 合约执行转账
       const hash = await permitTransferFromAsync([permit, transferDetails, accountAddress, signature as `0x${string}`]);
-
+      await waitTxSuccess(hash);
       addRecentTransaction({
         hash,
         description: `Transfer ${amount} USDT to ${to}`,
@@ -148,7 +164,7 @@ const App = () => {
     },
   });
 
-  const isBusy = isFetchingAllowance || isApproving || isTransferring || isPayPending;
+  const isBusy = disabled || isPayPending;
 
   useEffect(() => {
     if (isConnected && paramsChainId !== chainId) {
@@ -166,13 +182,14 @@ const App = () => {
   }, [lang]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen sm:py-8 sm:px-4">
+    <div className="flex flex-col items-center justify-center min-h-screen">
       <div className="w-full sm:w-fit px-6 py-6 bg-#0f1117/60 backdrop-blur-md sm:rounded-2xl flex flex-col items-center justify-center gap-5 shadow-[0_8px_32px_rgba(0,0,0,0.35)] border border-#2a2f3a/60">
         <div className="flex items-center gap-2">
           <img src={SVG.USDT} alt="USDT" className="w-8 h-8" />
-          <h1 className="text-#e5e7eb text-2xl font-semibold tracking-wide">{t('payment.title')}</h1>
+          <h1 className="text-#e5e7eb text-2xl font-semibold tracking-wide">
+            {title ? `${title} - ${t('payment.title')}` : t('payment.title')}
+          </h1>
         </div>
-        <div className="text-#9aa4b2 text-20px">{title || '-'}</div>
         <div className="text-#9aa4b2 text-sm">
           {t('payment.orderId')}: {orderId || '-'}
         </div>
