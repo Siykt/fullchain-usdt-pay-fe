@@ -27,11 +27,16 @@ const App = () => {
   const to = params.get('to') as Address;
   const qrcodeType = params.get('qrcodeType') || 'address';
   const lang = params.get('lang');
+  const expireTime = Number(params.get('expireTime'));
   const paramsChainId = Number(params.get('chain') || '1');
   const paramsChainName = SUPPORTED_CHAINS.find((chain) => chain.id === paramsChainId)?.name || 'Ethereum';
   const { signTypedDataAsync } = useSignTypedData();
   const waitTxSuccess = useWaitForTransactionSuccess();
   const { t } = useTranslation();
+
+  const isExpired = useMemo(() => {
+    return expireTime && new Date(expireTime).getTime() < Date.now();
+  }, [expireTime]);
 
   const { address: accountAddress, isConnected, chainId, chain } = useAccount();
   const { switchChain, switchChainAsync } = useSwitchChain({
@@ -42,7 +47,7 @@ const App = () => {
     abi: ABI.ERC20_ABI,
     address: usdtAddress,
     functionName: 'decimals',
-    query: { enabled: !!usdtAddress },
+    query: { enabled: !!usdtAddress, retry: false },
   });
   const parsedAmount = useMemo(() => parseUnits(amount, usdtDecimals || 6), [amount, usdtDecimals]);
 
@@ -78,7 +83,10 @@ const App = () => {
     PERMIT2_ADDRESS
   );
 
-  const disabled = useMemo(() => isFetchingAllowance || isApproving || isTransferring || isFetchingDecimals, [isFetchingAllowance, isApproving, isTransferring, isFetchingDecimals]);
+  const disabled = useMemo(
+    () => isFetchingAllowance || isApproving || isTransferring || isFetchingDecimals || isExpired,
+    [isFetchingAllowance, isApproving, isTransferring, isFetchingDecimals, isExpired]
+  );
 
   const { mutate: onPayOrConnection, isPending: isPayPending } = useMutation({
     mutationFn: async () => {
@@ -165,6 +173,15 @@ const App = () => {
   });
 
   const isBusy = disabled || isPayPending;
+  const btnText = useMemo(() => {
+    if (isExpired) {
+      return t('payment.expired');
+    }
+    if (isBusy) {
+      return t('payment.processing');
+    }
+    return isConnected ? t('payment.payNow') : t('payment.connectWallet');
+  }, [isExpired, isConnected, t]);
 
   useEffect(() => {
     if (isConnected && paramsChainId !== chainId) {
@@ -193,8 +210,9 @@ const App = () => {
         <div className="text-#9aa4b2 text-sm">
           {t('payment.orderId')}: {orderId || '-'}
         </div>
-        <div className="rounded-xl bg-#1A1B1F border border-#293041/70 shadow-inner p-2">
+        <div className="relative rounded-xl bg-#1A1B1F border border-#293041/70 shadow-inner p-2 of-hidden">
           <QRCode data={qrcodeLink} width={268} height={268} />
+          {isExpired && <div className="absolute inset-0 backdrop-blur-sm rounded-xl shadow-inner" />}
         </div>
 
         {isConnected && (
@@ -227,11 +245,12 @@ const App = () => {
             disabled={isBusy}
             className={classnames(
               'inline-flex items-center justify-center w-full h-12 rounded-xl btn-primary ',
-              isBusy && 'cursor-not-allowed pointer-events-none'
+              isBusy && 'cursor-not-allowed pointer-events-none',
+              isExpired && 'opacity-50'
             )}
           >
             <div className="h-8 flex items-center justify-center">
-              {isBusy ? t('payment.processing') : isConnected ? t('payment.payNow') : t('payment.connectWallet')}
+              {btnText}
               {isConnected && !isBusy && amount ? ` ${amount} USDT` : ''}
             </div>
           </Button>

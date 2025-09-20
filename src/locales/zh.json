@@ -8,6 +8,7 @@
     "processing": "处理中…",
     "payNow": "立即支付",
     "connectWallet": "链接钱包",
-    "paymentAmount": "支付金额"
+    "paymentAmount": "支付金额",
+    "expired": "此订单已过期，请返回应用重新创建"
   }
 }

@@ -8,6 +8,7 @@
     "paymentNetwork": "Payment Network",
     "processing": "Processing...",
     "receiveAddress": "Receiving address",
-    "title": "USDT Payment"
+    "title": "USDT Payment",
+    "expired": "This order has expired, please return to the app to recreate it."
   }
 }
