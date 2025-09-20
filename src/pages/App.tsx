@@ -35,7 +35,7 @@ const App = () => {
   const { t } = useTranslation();
 
   const isExpired = useMemo(() => {
-    return expireTime && new Date(expireTime).getTime() < Date.now();
+    return !!expireTime && new Date(expireTime).getTime() < Date.now();
   }, [expireTime]);
 
   const { address: accountAddress, isConnected, chainId, chain } = useAccount();
@@ -174,14 +174,11 @@ const App = () => {
 
   const isBusy = disabled || isPayPending;
   const btnText = useMemo(() => {
-    if (isExpired) {
-      return t('payment.expired');
-    }
-    if (isBusy) {
-      return t('payment.processing');
-    }
-    return isConnected ? t('payment.payNow') : t('payment.connectWallet');
-  }, [isExpired, isConnected, t]);
+    if (isExpired) return t('payment.expired');
+    if (isBusy) return t('payment.processing');
+    if (!isConnected) return t('payment.connectWallet');
+    return t('payment.payNow', { amount });
+  }, [isExpired, isConnected, t, isBusy, amount]);
 
   useEffect(() => {
     if (isConnected && paramsChainId !== chainId) {
@@ -237,22 +234,25 @@ const App = () => {
           </div>
         </div>
 
-        {error && <div className="text-#ef4444 text-sm">{error}</div>}
-
-        <div className="mt-2 w-full flex items-center justify-center">
+        <div className="mt-2 w-full flex items-center justify-center relative">
+          <div
+            className={classnames(
+              'text-#ef4444 text-sm absolute -top-5.5 left-0 opacity-0 transition-opacity duration-300',
+              error && 'opacity-100'
+            )}
+          >
+            {error}
+          </div>
           <Button
             onClick={() => onPayOrConnection()}
             disabled={isBusy}
             className={classnames(
-              'inline-flex items-center justify-center w-full h-12 rounded-xl btn-primary ',
+              'inline-flex items-center justify-center w-full h-12 rounded-xl btn-primary',
               isBusy && 'cursor-not-allowed pointer-events-none',
               isExpired && 'opacity-50'
             )}
           >
-            <div className="h-8 flex items-center justify-center">
-              {btnText}
-              {isConnected && !isBusy && amount ? ` ${amount} USDT` : ''}
-            </div>
+            <div className="h-8 flex items-center justify-center">{btnText}</div>
           </Button>
         </div>
       </div>
