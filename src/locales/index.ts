@@ -44,6 +44,8 @@ i18n.use(initReactI18next).init({
   fallbackLng,
   interpolation: {
     escapeValue: false,
+    prefix: '{',
+    suffix: '}',
   },
   resources: Object.fromEntries(languages.map((language) => [language.code, { translation: language.file }])),
 });

@@ -6,7 +6,7 @@
     "receiveAddress": "收款地址",
     "paymentNetwork": "支付网络",
     "processing": "处理中…",
-    "payNow": "立即支付",
+    "payNow": "立即支付 {amount} USDT",
     "connectWallet": "链接钱包",
     "paymentAmount": "支付金额",
     "expired": "此订单已过期，请返回应用重新创建"
